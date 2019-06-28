@@ -17,18 +17,13 @@ pacman::p_load_gh(
 # install するが load 不要
 install.packages(setdiff(c(
   "stringi",
+  "caret",
   "flexmix",
   "ranger",
   "quantregForest",
   "xgboost"
   ), installed.packages()))
 
-
-# require(mlr) # caret なども depends ではないがインストールしておくとよい
-# require(mlrCPO) # Composable Preprocessing Operators for MLR. mlr の前処理の機能を強化するパッケージ
-
-# 登録した learner 読み込み
-source("resgist_mlr_learners.R")
 
 list_df <- list()
 for(f in list.files("data", pattern = "housing_[0-9]+\\.RData", full.names=T)[1:7]){
@@ -84,21 +79,34 @@ df %>% preproc_housing %>% skim
 tsk_housing <- makeRegrTask(
   id="hoge",
   data=df %>% preproc_housing %>% dplyr::select(-ID) %>% as.data.frame %>% drop_na, target="rent_price"
-  ) %>% createDummyFeatures  # xgboost に合わせて factor はすべて数値にする
+  ) %>% createDummyFeatures(method="reference")
+# xgboost に合わせて factor はすべて数値にする method="reference" にしないと特異行列になるのでアルゴリズムによってはエラー原因になる
+
+# 登録した learner 読み込み
+source("resgist_mlr_learners.R")
 
 # learner を定義
+# 全て目的変数を対数変換
 learner_log_lmnet <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>%  makeLearner("regr.glmnet")
-learner_log_rf <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.ranger", num.trees=100)
+learner_log_rf <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.ranger", num.trees=10)
 learner_log_xgboost <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.xgboost")
-learner_log_mixute <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.flexmix", k=2)
+learner_log_qRF <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.quantregForest", ntree=10, nthreads=4)
+learner_log_mixute <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.flexmix", k=3)
 
 # 学習
-m_rf <- train(learner_log_rf, tsk_housing)
 m_lin <- train(learner_log_lmnet, tsk_housing)
+m_rf <- train(learner_log_rf, tsk_housing)
 m_xgb <- train(learner_log_xgboost, tsk_housing)
+m_qrf <- train(learner_log_qRF, tsk_housing)
 m_mix <- train(learner_log_mixute, tsk_housing)
 
 performance(predict(m_rf, tsk_housing), list(mse, rmse, mae))
 performance(predict(m_lin, tsk_housing), list(mse, rmse, mae))
 performance(predict(m_xgb, tsk_housing), list(mse, rmse, mae))
-performance(predict(m_xgb, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_mix, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_qrf, tsk_housing), list(mse, rmse, mae))
+
+ggplot(
+  predict(m_qrf, tsk_housing) %>% as_tibble %>% mutate(resid=truth - response),
+  aes(x=resid)
+  ) + geom_histogram(bins=50)
