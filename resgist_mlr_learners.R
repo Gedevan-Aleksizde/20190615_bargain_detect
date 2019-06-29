@@ -1,6 +1,7 @@
 pacman::p_load(mlr)
 
 ##### FlexMix #####
+# https://github.com/mlr-org/mlr/blob/master/R/RLearner_classif_xgboost.R
 makeRLearner.regr.flexmix = function() {
   makeRLearnerRegr(
     cl = "regr.flexmix",
@@ -63,17 +64,36 @@ makeRLearner.regr.quantregForest = function() {
     note = ""
   )
 }
+makeRLearner.regr.quantregForest = function() {
+  makeRLearnerRegr(
+    cl = "regr.quantregForest",
+    package = "ranger",
+    par.set = makeParamSet(
+      makeIntegerLearnerParam(id="num.trees", default=500L, lower=1L),
+      makeIntegerLearnerParam(id="mtry", defaul=NULL, special.vals=list(NULL), lower=1L),
+      makeDiscreteLearnerParam(id="importance", values=c("none", "impurity", "impurity_corrected", "permutations"), default="none"),
+      makeIntegerLearnerParam(id="seed", default=NULL, special.vals=list(NULL), tunable=F),
+      makeIntegerLearnerParam(id="num.threads", lower=1L, when="both", tunable=FALSE)
+    ),
+    par.vals = list(num.threads = 1L),
+    properties = c("numerics", "factors", "weights"),
+    name = "quantile regression random forest by ranger",
+    short.name = "qrf",
+    note = ""
+  )
+}
+
 
 trainLearner.regr.quantregForest = function (.learner, .task, .subset, .weights = NULL, ...) 
 {
-  d <- getTaskData(.task, .subset, target.extra = TRUE)
-  quantregForest::quantregForest(x=d$data, y=d$target, ...)
+  f <- getTaskFormula(.task)
+  ranger::ranger(f, data=getTaskData(.task, .subset), quantreg=T, keep.inbag=T, ...)
 }
 
 predictLearner.regr.quantregForest = function (.learner, .model, .newdata, ...) 
 {
   # TODO: .5 以外の分位点を返すオプションはいるか?
-  predict(.model$learner.model, newdata = .newdata)[, 2]
+  predict(.model$learner.model, newdata = .newdata, type="quantiles")$predictions[, 2]
 }
 
 registerS3method("makeRLearner", "regr.quantregForest",

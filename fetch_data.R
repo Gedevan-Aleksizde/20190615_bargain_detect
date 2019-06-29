@@ -82,5 +82,7 @@ for(i in 1:NROW(tb_q)){
   save(df, file=paste0("data_20190628/housing_", sect_id, ".RData"))
   li_df[[as.character(sect_id)]] <- df
 }
-# TODO なんかエラー出る
+# TODO 謎エラーで保存できない
+# エラー:  予想外の ')' です  in ""data_20190628/housing_all.RData")"
+# ????
 save(li_df, file="data_20190628/housing_all.RData")

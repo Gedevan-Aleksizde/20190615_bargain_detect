@@ -26,8 +26,9 @@ install.packages(setdiff(c(
 
 
 list_df <- list()
-for(f in list.files("data", pattern = "housing_[0-9]+\\.RData", full.names=T)[1:7]){
+for(f in list.files("data", pattern = "housing_[0-9]+\\.RData", full.names=T)){
   load(f)
+  print(f)
   list_df[[str_extract(f, "[0-9]+")]] <- df
 }
 df <- bind_rows(list_df)
@@ -88,25 +89,22 @@ source("resgist_mlr_learners.R")
 # learner を定義
 # 全て目的変数を対数変換
 learner_log_lmnet <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>%  makeLearner("regr.glmnet")
-learner_log_rf <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.ranger", num.trees=10)
+learner_log_rf <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.ranger", num.trees=100, num.threads=4)
+learner_log_qrf <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.quantregForest", num.trees=100, num.threads=4)
 learner_log_xgboost <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.xgboost")
-learner_log_qRF <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.quantregForest", ntree=10, nthreads=4)
 learner_log_mixute <- cpoScale(center=T, scale=T) %>>% cpoLogTrafoRegr() %>>% makeLearner("regr.flexmix", k=3)
 
 # 学習
 m_lin <- train(learner_log_lmnet, tsk_housing)
 m_rf <- train(learner_log_rf, tsk_housing)
 m_xgb <- train(learner_log_xgboost, tsk_housing)
-m_qrf <- train(learner_log_qRF, tsk_housing)
+m_qrf <- train(learner_log_qrf, tsk_housing)
 m_mix <- train(learner_log_mixute, tsk_housing)
 
-performance(predict(m_rf, tsk_housing), list(mse, rmse, mae))
-performance(predict(m_lin, tsk_housing), list(mse, rmse, mae))
-performance(predict(m_xgb, tsk_housing), list(mse, rmse, mae))
-performance(predict(m_mix, tsk_housing), list(mse, rmse, mae))
-performance(predict(m_qrf, tsk_housing), list(mse, rmse, mae))
+save(m_lin, m_rf, m_xgb, m_qrf, m_mix, file="models.RData")
 
-ggplot(
-  predict(m_qrf, tsk_housing) %>% as_tibble %>% mutate(resid=truth - response),
-  aes(x=resid)
-  ) + geom_histogram(bins=50)
+performance(predict(m_lin, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_rf, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_xgb, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_qrf, tsk_housing), list(mse, rmse, mae))
+performance(predict(m_mix, tsk_housing), list(mse, rmse, mae))
