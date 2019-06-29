@@ -39,7 +39,6 @@ df <- df %>% mutate(
 df <- unnest(df, .preserve="accessibility")
 rm(list_df)
 
-df <- df %>% rename(manage_fee=manege_fee)
 # save(df, file="housing_all.RData")
 
 # モデルに入力するデータの変換
