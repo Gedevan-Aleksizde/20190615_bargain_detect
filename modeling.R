@@ -75,6 +75,9 @@ preproc_housing <- function(data){
 
 df %>% preproc_housing %>% skim
 
+
+###### 入力の整形ここまで #####
+
 # task を定義
 tsk_housing <- makeRegrTask(
   id="hoge",
